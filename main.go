@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/aslon1213/reservations-API/handlers"
+	"github.com/aslon1213/reservations-API/models"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
@@ -29,13 +30,11 @@ func Init() {
 	}
 	DB_CLIENT = db
 	//create tables
-	// db.AutoMigrate(&models.Resident{}, &models.Room{}, &models.Reservation{})
+	// db.AutoMigrate(&models.ReservationsbyDate{})
+	// db.AutoMigrate(&models.Reservation{})
+	db.AutoMigrate(&models.Resident{}, &models.Room{}, &models.Reservation{})
 
 	Handlers = handlers.NewHandlers(ctx, db)
-
-}
-
-func GetRooms(c *gin.Context) {
 
 }
 
@@ -46,6 +45,11 @@ func main() {
 	api := router.Group("/api")
 	api.GET("/rooms", Handlers.GetRooms)
 	api.POST("/rooms/new", Handlers.CreateRoom)
+	api.GET("/rooms/:id", Handlers.GetRoom)
+	api.GET("/rooms/:id/availability", Handlers.GetRoomAvailability)
+	api.POST("/rooms/:id/book", Handlers.BookRoom)
+	api.GET("/allreservs", Handlers.GetAllReservations)
+	api.DELETE("/reservs/delete/all", Handlers.DeleteAllReservations)
 
 	if err := router.Run("localhost:8080"); err != nil {
 		panic(err)

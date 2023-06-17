@@ -8,11 +8,10 @@ import (
 
 type Reservation struct {
 	gorm.Model
-	Resident   string    `json:"resident"`
 	RoomID     uint      `json:"room_id"`
 	Start      time.Time `json:"start"`
 	End        time.Time `json:"end"`
-	Reservator Resident  `json:"reservator" gorm:"foreignKey:Resident"`
+	Reservator string    `json:"reservator"`
 }
 
 type Resident struct {
