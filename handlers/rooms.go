@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/aslon1213/reservations-API/models"
 	"github.com/gin-gonic/gin"
@@ -53,21 +54,146 @@ func (h *Handlers) GetRooms(c *gin.Context) {
 		h.DB.Where("type = ?", types).Where("name LIKE ?", "%"+search+"%").Find(&rooms)
 
 	}
+	type output_room struct {
+		ID       uint   `json:"id"`
+		Name     string `json:"name"`
+		Type     string `json:"type"`
+		Capacity int    `json:"capacity"`
+	}
+	var output []output_room
+	for _, room := range rooms {
+		a := output_room{
+			ID:       room.ID,
+			Name:     room.Name,
+			Type:     room.Type,
+			Capacity: room.Capacity}
+		output = append(output, a)
+	}
 
-	fmt.Println(rooms)
-	rooms_with_pagination := map[int][]models.Room{}
-	for i := 0; i <= len(rooms)/page_size_int; i++ {
-		rooms_with_pagination[i] = rooms[i*page_size_int : (i+1)*page_size_int]
+	fmt.Println(output)
+	rooms_with_pagination := map[int][]output_room{}
+	for i := 0; i <= len(output)/page_size_int; i++ {
+		if len(output) < (i+1)*page_size_int {
+			rooms_with_pagination[i] = output[i*page_size_int:]
+		} else {
+			rooms_with_pagination[i] = output[i*page_size_int : (i+1)*page_size_int]
+		}
+
 	}
 	// c.JSON(200, gin.H{
 	// 	"rooms": rooms,
 	// })
 
-	c.JSON(200, gin.H{"rooms": rooms_with_pagination[page_int-1]})
+	c.JSON(200, gin.H{
+		"page":      page_int,
+		"count":     len(output)/page_size_int + 1,
+		"page_size": page_size_int,
+		"rooms":     rooms_with_pagination[page_int-1]})
 
 }
 
-func (h *Handlers) GetRoom() {
+func (h *Handlers) GetRoom(c *gin.Context) {
+
+	id := c.Param("id")
+	room := models.Room{}
+	res := h.DB.First(&room, id)
+
+	reservations := []models.Reservation{}
+	h.DB.Where("room_id = ?", id).Find(&reservations)
+
+	if res.Error != nil {
+		c.JSON(400, gin.H{"error": "xona muvaffaqiyatli band qilindi"})
+		return
+	}
+	room.Reservations = reservations
+	c.JSON(200, gin.H{"room": room})
+
+}
+
+func (h *Handlers) GetRoomAvailability(c *gin.Context) {
+	id := c.Param("id")
+	room := models.Room{}
+	res := h.DB.First(&room, id)
+	if res.Error != nil {
+		c.JSON(400, gin.H{"error": res.Error.Error() + " Getting room failed"})
+		return
+	}
+
+	dat := c.Query("date")
+	date := time.Time{}
+	if dat != "" {
+		date, _ = time.Parse("01-02-2006", dat)
+	}
+	if dat == "" {
+		date = time.Now()
+	}
+
+	// get reservations
+	fmt.Println(date)
+	// get date to start of day
+	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	// get date to end of day
+	end := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, time.UTC)
+	reservations := []models.Reservation{}
+	h.DB.Where("room_id = ?", id).Where("start <= ?", end).Where("end >= ?", start).Find(&reservations)
+	// h.DB.Where("room_id = ?", id).Find(&reservations)
+	available_hours := getavailablehours(reservations)
+	fmt.Println(available_hours)
+
+	type output struct {
+		Start int `json:"start"`
+		End   int `json:"end"`
+	}
+
+	o := []output{}
+	if len(available_hours) == 24 {
+		o = append(o, output{Start: 0, End: 24})
+	} else {
+		prev, cur := 0, 1
+		for cur != len(available_hours) {
+			if available_hours[cur]-available_hours[cur-1] > 1 {
+				o = append(o, output{Start: available_hours[prev], End: available_hours[cur-1] + 1})
+				prev = cur
+			}
+			cur++
+		}
+		if prev-cur != 0 {
+			o = append(o, output{Start: available_hours[prev], End: available_hours[cur-1] + 1})
+		}
+	}
+
+	room.Reservations = reservations
+	c.JSON(200, gin.H{"room": room, "available_hours": o})
+}
+
+func getavailablehours(reservations []models.Reservation) []int {
+	available_hours := []int{}
+	for i := 0; i < 24; i++ {
+		available_hours = append(available_hours, i)
+	}
+
+	appointed_hours := []int{}
+	for _, reservation := range reservations {
+		for i := reservation.Start.Hour(); i < reservation.End.Hour(); i++ {
+			appointed_hours = append(appointed_hours, i)
+		}
+	}
+
+	for _, hour := range appointed_hours {
+		available_hours = remove(available_hours, hour)
+	}
+
+	return available_hours
+}
+
+func remove(slice []int, s int) []int {
+	for i, v := range slice {
+		if v == s {
+			slice = append(slice[:i], slice[i+1:]...)
+			return slice
+		}
+	}
+	return slice
 
 }
 
