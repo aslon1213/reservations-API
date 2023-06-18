@@ -1,3 +1,7 @@
+# Installation
+
+-
+
 # YBKY saralash bosqichi topshirig'i
 
 Impactt co-working markazi rezidentlariga majlis xonalarni oldindan oson band qilish uchun tizim yaratmoqchi va bunda sizning yordamingiz kerak.
