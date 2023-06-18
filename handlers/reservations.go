@@ -29,14 +29,6 @@ func (h *Handlers) BookRoom(c *gin.Context) {
 		c.JSON(400, gin.H{"error": res.Error.Error()})
 		return
 	}
-	// {
-	// 	"resident": {
-	// 	  "name": "Anvar Sanayev"
-	// 	},
-	// 	"start": "05-06-2023 9:00:00",
-	// 	"end": "05-06-2023 10:00:00"
-	//   }
-
 	var reserv struct {
 		Resident struct {
 			Name string `json:"name"`
@@ -53,23 +45,25 @@ func (h *Handlers) BookRoom(c *gin.Context) {
 
 	loc, _ := time.LoadLocation("Asia/Tashkent")
 	// parse date
-	starting_time, err := time.ParseInLocation("01-02-2006 15:04:05", reserv.Start, loc)
+	starting_time, err := time.ParseInLocation("02-01-2006 15:04:05", reserv.Start, loc)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	ending_time, err := time.ParseInLocation("01-02-2006 15:04:05", reserv.End, loc)
+	ending_time, err := time.ParseInLocation("02-01-2006 15:04:05", reserv.End, loc)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
+
+	fmt.Println(ending_time.Day())
 
 	fmt.Println(starting_time, ending_time)
 	reservations := []models.Reservation{}
 	h.DB.Where("room_id = ?", room_id).Where("start >= ?", starting_time).Where("end <= ?", ending_time).Find(&reservations)
 	if len(reservations) > 0 {
-		c.JSON(400, gin.H{"error": "Room is already booked, see available times"})
+		c.JSON(400, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
 		return
 	}
 
