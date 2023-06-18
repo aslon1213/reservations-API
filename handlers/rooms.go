@@ -102,12 +102,20 @@ func (h *Handlers) GetRoom(c *gin.Context) {
 	h.DB.Where("room_id = ?", id).Find(&reservations)
 
 	if res.Error != nil {
-		c.JSON(400, gin.H{"error": "xona muvaffaqiyatli band qilindi"})
+		c.JSON(400, gin.H{"error": "topilmadi"})
 		return
 	}
 	room.Reservations = reservations
-	c.JSON(200, gin.H{"room": room})
+	c.JSON(200, gin.H{"id": room.ID,
+		"name":     room.Name,
+		"type":     room.Type,
+		"capacity": room.Capacity})
 
+}
+
+type output struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
 }
 
 func (h *Handlers) GetRoomAvailability(c *gin.Context) {
@@ -118,11 +126,15 @@ func (h *Handlers) GetRoomAvailability(c *gin.Context) {
 		c.JSON(400, gin.H{"error": res.Error.Error() + " Getting room failed"})
 		return
 	}
-
+	err := error(nil)
 	dat := c.Query("date")
 	date := time.Time{}
 	if dat != "" {
-		date, _ = time.Parse("01-02-2006", dat)
+		date, err = time.Parse("02-01-2006", dat)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid date format please give in the format 02-01-2006 DD-MM-YYYY"})
+			return
+		}
 	}
 	if dat == "" {
 		date = time.Now()
@@ -139,11 +151,6 @@ func (h *Handlers) GetRoomAvailability(c *gin.Context) {
 	// h.DB.Where("room_id = ?", id).Find(&reservations)
 	available_hours := getavailablehours(reservations)
 	fmt.Println(available_hours)
-
-	type output struct {
-		Start int `json:"start"`
-		End   int `json:"end"`
-	}
 
 	o := []output{}
 	if len(available_hours) == 24 {
@@ -162,8 +169,29 @@ func (h *Handlers) GetRoomAvailability(c *gin.Context) {
 		}
 	}
 
+	type output_ava struct {
+		Start string `json:"start"`
+		End   string `json:"end"`
+	}
+	out := []output_ava{}
+
+	for _, oo := range o {
+		start, end, _ := oo.formatavailablehours(date.Day(), int(date.Month()), date.Year())
+		out = append(out, output_ava{Start: start, End: end})
+	}
+
 	room.Reservations = reservations
-	c.JSON(200, gin.H{"room": room, "available_hours": o})
+	c.JSON(200, out)
+}
+
+func (a *output) formatavailablehours(day int, month int, year int) (string, string, error) {
+
+	t1 := time.Date(year, time.Month(month), day, a.Start, 0, 0, 0, time.UTC)
+	t2 := time.Date(year, time.Month(month), day, a.End, 0, 0, 0, time.UTC)
+
+	start := t1.Format("02-01-2006 15:04:05")
+	end := t2.Format("02-01-2006 15:04:05")
+	return start, end, nil
 }
 
 func getavailablehours(reservations []models.Reservation) []int {
