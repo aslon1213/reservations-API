@@ -1,6 +1,11 @@
 # Installation
 
--
+- Birinchi navbatda kompyuteringizda Docker o'rnatilgan bo'lishi kerak. Bo'lmasa yuklab olish uchun https://www.docker.com . docker-compose.yml file turgan directoryda terminal ochib ushbu komandani tering.
+
+`docker compose up -d --build `
+
+- Bu mysql serverni containerini servis sifatida hosil qilib localhost:3305 ga ulaydi va go serverni containerini localhost:8080 ga ulaydi.
+- Test
 
 # YBKY saralash bosqichi topshirig'i
 
