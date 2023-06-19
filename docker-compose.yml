@@ -19,9 +19,9 @@ services:
     ports:
       - 8080:8080
     environment:
-      - GINMODE=release
+      - GIN_MODE=release
     depends_on:
-      - db
+      - "db"
     links:
       - "db:database"
 
