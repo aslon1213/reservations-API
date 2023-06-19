@@ -196,7 +196,7 @@ func (a *output) formatavailablehours(day int, month int, year int) (string, str
 
 func getavailablehours(reservations []models.Reservation) []int {
 	available_hours := []int{}
-	for i := 0; i < 24; i++ {
+	for i := 9; i < 18; i++ {
 		available_hours = append(available_hours, i)
 	}
 

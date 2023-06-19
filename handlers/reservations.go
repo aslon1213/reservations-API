@@ -57,7 +57,27 @@ func (h *Handlers) BookRoom(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(ending_time.Day())
+	if starting_time.Day() != ending_time.Day() {
+		if starting_time.Hour() < ending_time.Hour() {
+			c.JSON(400, gin.H{"error": "Session ni oxiri boshidan keyin bo'la olmaydi :_)"})
+			return
+		}
+		c.JSON(400, gin.H{"error": "Kun bir xil bo'lishi kerak"})
+		return
+	}
+	if starting_time.Day() < time.Now().Day() {
+		c.JSON(400, gin.H{"error": "Bugundan oldingi sanalarga buyurtma qila olmaysiz"})
+		return
+	}
+
+	if starting_time.Hour() > 18 || starting_time.Hour() < 9 {
+		c.JSON(400, gin.H{"error": "Xona faoliyat vaqti 9 dan 18 gacha"})
+		return
+	}
+	if ending_time.Hour() > 18 || ending_time.Hour() < 9 {
+		c.JSON(400, gin.H{"error": "Xona faoliyat vaqti 9 dan 18 gacha"})
+		return
+	}
 
 	fmt.Println(starting_time, ending_time)
 	reservations := []models.Reservation{}
@@ -115,5 +135,74 @@ func (h *Handlers) DeleteAllReservations(c *gin.Context) {
 	h.DB.Find(&reservations)
 	h.DB.Delete(&reservations)
 	c.JSON(200, gin.H{"message": "All reservations deleted"})
+
+}
+
+func (h *Handlers) GetAllReservationsFullInfo(c *gin.Context) {
+
+	id := c.Param("id")
+
+	if id == "" {
+		c.JSON(400, gin.H{"error": "Invalid room id"})
+		return
+	}
+	reservations := []models.Reservation{}
+	t := h.DB.Find(&reservations, "room_id = ?", id)
+	if t.Error != nil {
+		c.JSON(400, gin.H{"error": t.Error.Error()})
+		return
+	}
+	c.JSON(200, reservations)
+
+}
+
+func (h *Handlers) UnbookRoom(c *gin.Context) {
+	id := c.Param("id")
+
+	if id == "" {
+		c.JSON(400, gin.H{"error": "Invalid room id"})
+		return
+	}
+
+	var reserv struct {
+		Resident struct {
+			Name string `json:"name"`
+		} `json:"resident"`
+		Start string `json:"start"`
+		End   string `json:"end"`
+	}
+
+	err := c.BindJSON(&reserv)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	loc, _ := time.LoadLocation("Asia/Tashkent")
+	// parse date
+	starting_time, err := time.ParseInLocation("02-01-2006 15:04:05", reserv.Start, loc)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	ending_time, err := time.ParseInLocation("02-01-2006 15:04:05", reserv.End, loc)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	reservation := models.Reservation{}
+
+	fmt.Println(starting_time, ending_time)
+
+	h.DB.Where("start = ?", starting_time).Where("end = ?", ending_time).First(&reservation)
+	if reservation.ID == 0 {
+		c.JSON(400, gin.H{"error": "Reservation not found"})
+		return
+	}
+
+	h.DB.Delete(&reservation)
+	c.JSON(200, gin.H{"message": "Reservation deleted"})
 
 }

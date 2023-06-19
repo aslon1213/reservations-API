@@ -50,7 +50,8 @@ func main() {
 	api.POST("/rooms/:id/book", Handlers.BookRoom)
 	api.GET("/allreservs", Handlers.GetAllReservations)
 	api.DELETE("/reservs/delete/all", Handlers.DeleteAllReservations)
-
+	api.GET("/rooms/:id/reservations_full", Handlers.GetAllReservationsFullInfo)
+	api.DELETE("/rooms/:id/unbook", Handlers.UnbookRoom)
 	if err := router.Run("localhost:8080"); err != nil {
 		panic(err)
 	}
