@@ -5,7 +5,30 @@
 `docker compose up -d --build `
 
 - Bu mysql serverni containerini servis sifatida hosil qilib localhost:3305 ga ulaydi va go serverni containerini localhost:8080 ga ulaydi.
-- Test
+- xonalar haqida ushbu malu'motlar oldindan kiritiladi containerlar ishga tushganda
+
+```json
+  {
+      "id": 1,
+      "name": "mytaxi",
+      "type": "focus",
+      "capacity": 1
+    },
+    {
+      "id": 2,
+      "name": "workly",
+      "type": "team",
+      "capacity": 5
+    },
+    {
+      "id": 3,
+      "name": "express24",
+      "type": "conference",
+      "capacity": 15
+    }
+```
+
+- Reservation API.postman_collection.json - postman uchun specificationlar
 
 # YBKY saralash bosqichi topshirig'i
 
