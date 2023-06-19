@@ -5,7 +5,7 @@
 `docker compose up -d --build `
 
 - Bu mysql serverni containerini servis sifatida hosil qilib localhost:3305 ga ulaydi va go serverni containerini localhost:8080 ga ulaydi.
-- Test
+- Test using using json provided
 
 # YBKY saralash bosqichi topshirig'i
 
