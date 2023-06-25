@@ -34,31 +34,75 @@ func (h *Handlers) GetRooms(c *gin.Context) {
 
 	types := c.Query("type")
 	page := c.Query("page")
+	page_size := c.Query("page_size")
+	search := c.Query("search")
+	if page_size == "" || page == "" {
+		rooms := []models.Room{}
+		if types == "" && search == "" {
+			h.DB.Find(&rooms)
+		} else {
+			if types == "" {
+				types = "%"
+			}
+			h.DB.Where("type  LIKE ?", types).Where("name LIKE ?", "%"+search+"%").Find(&rooms)
+		}
+
+		type output_room struct {
+			Capacity int    `json:"capacity"`
+			ID       uint   `json:"id"`
+			Name     string `json:"name"`
+			Type     string `json:"type"`
+		}
+		var output []output_room
+		for _, room := range rooms {
+			a := output_room{
+				ID:       room.ID,
+				Name:     room.Name,
+				Type:     room.Type,
+				Capacity: room.Capacity}
+			output = append(output, a)
+		}
+		page := 0
+		if len(output) != 0 {
+			page = 1
+		}
+		c.JSON(200, gin.H{
+			"page":      page,
+			"count":     len(output),
+			"page_size": len(output),
+			"results":   output,
+		})
+		return
+	}
 	page_int, _ := strconv.Atoi(page)
+
 	if page_int <= 0 {
 		c.JSON(400, gin.H{"error": "Invalid page number"})
 		return
 	}
-	page_size := c.Query("page_size")
+
 	page_size_int, err := strconv.Atoi(page_size)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	search := c.Query("search")
+
 	fmt.Println(types, page_int, page_size, search)
 	rooms := []models.Room{}
 	if types == "" && search == "" {
 		h.DB.Find(&rooms)
 	} else {
-		h.DB.Where("type = ?", types).Where("name LIKE ?", "%"+search+"%").Find(&rooms)
+		if types == "" {
+			types = "%"
+		}
+		h.DB.Where("type LIKE ?", types).Where("name LIKE ?", "%"+search+"%").Find(&rooms)
 
 	}
 	type output_room struct {
+		Capacity int    `json:"capacity"`
 		ID       uint   `json:"id"`
 		Name     string `json:"name"`
 		Type     string `json:"type"`
-		Capacity int    `json:"capacity"`
 	}
 	var output []output_room
 	for _, room := range rooms {
@@ -84,11 +128,14 @@ func (h *Handlers) GetRooms(c *gin.Context) {
 	// 	"rooms": rooms,
 	// })
 
+	if len(output) == 0 {
+		page_int = 0
+	}
 	c.JSON(200, gin.H{
 		"page":      page_int,
-		"count":     len(output)/page_size_int + 1,
+		"count":     len(output),
 		"page_size": page_size_int,
-		"rooms":     rooms_with_pagination[page_int-1]})
+		"results":   rooms_with_pagination[page_int-1]})
 
 }
 
@@ -102,7 +149,7 @@ func (h *Handlers) GetRoom(c *gin.Context) {
 	h.DB.Where("room_id = ?", id).Find(&reservations)
 
 	if res.Error != nil {
-		c.JSON(400, gin.H{"error": "topilmadi"})
+		c.JSON(404, gin.H{"error": "topilmadi"})
 		return
 	}
 	room.Reservations = reservations

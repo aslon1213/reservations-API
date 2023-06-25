@@ -55,9 +55,6 @@ func create_some_rooms() {
 		{"mytaxi", "focus", 1},
 		{"workly", "team", 5},
 		{"express24", "conference", 15},
-		{"Focus Room 1", "focus", 1},
-		{"Focus Room 2", "focus", 1},
-		{"Focus Room 3", "focus", 1},
 	}
 
 	for _, raw_input := range raw_inputs {
@@ -84,11 +81,10 @@ func create_some_rooms() {
 
 func main() {
 
-	time.Sleep(time.Second * 30)
+	// time.Sleep(time.Second * 30)
 	//
 	Init()
 	router := gin.Default()
-
 	api := router.Group("/api")
 	api.GET("/rooms", Handlers.GetRooms)
 	api.POST("/rooms/new", Handlers.CreateRoom)
@@ -99,7 +95,7 @@ func main() {
 	api.DELETE("/reservs/delete/all", Handlers.DeleteAllReservations)
 	api.GET("/rooms/:id/reservations_full", Handlers.GetAllReservationsFullInfo)
 	api.DELETE("/rooms/:id/unbook", Handlers.UnbookRoom)
-	go create_some_rooms()
+	// go create_some_rooms()
 	if err := router.Run("0.0.0.0:8080"); err != nil {
 		panic(err)
 	}
