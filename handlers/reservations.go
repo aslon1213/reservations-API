@@ -63,43 +63,20 @@ func (h *Handlers) BookRoom(c *gin.Context) {
 	// }
 
 	if starting_time.Day() != ending_time.Day() {
-		if starting_time.Hour() < ending_time.Hour() {
+		if starting_time.Unix() < ending_time.Unix() {
 			c.JSON(400, gin.H{"error": "Session ni oxiri boshidan keyin bo'la olmaydi :_)"})
 			return
 		}
 		c.JSON(400, gin.H{"error": "Kun bir xil bo'lishi kerak"})
 		return
 	}
-	if starting_time.Day() < time.Now().Day() {
-		c.JSON(400, gin.H{"error": "Bugundan oldingi sanalarga buyurtma qila olmaysiz"})
+	if starting_time.Unix() < time.Now().Unix() {
+		c.JSON(400, gin.H{"error": "Bugundan oldingi sanalarga buyurtma qila olmaysiz", "date": starting_time.Day(), "day": starting_time.Day(), "month": starting_time.Month(), "year": starting_time.Year()})
 		return
 	}
-
-	if starting_time.Hour() < 9 {
-		starting_time = time.Date(starting_time.Year(), starting_time.Month(), starting_time.Day(), 9, 0, 0, 0, loc)
-		if ending_time.Hour() < 9 {
-			c.JSON(400, gin.H{"error": "Kun boshidan oldin buyurtma qila olmaysiz"})
-			return
-		}
-	}
-
-	if ending_time.Hour() > 18 {
-
-		ending_time = time.Date(ending_time.Year(), ending_time.Month(), ending_time.Day(), 18, 0, 0, 0, loc)
-		if starting_time.Hour() > 18 {
-			c.JSON(400, gin.H{"error": "Kun oxiridan keyin buyurtma qila olmaysiz"})
-			return
-		}
-	}
-
 	fmt.Println(starting_time, ending_time)
 	reservations := []models.Reservation{}
 	h.DB.Where("room_id = ?", room_id).Find(&reservations)
-
-	// check if room is available
-
-	// | xx |
-	// x | x |
 
 	for _, reserv := range reservations {
 		if starting_time.After(reserv.Start) && starting_time.Before(reserv.End) {
@@ -148,7 +125,7 @@ func (h *Handlers) BookRoom(c *gin.Context) {
 
 	t := h.DB.Create(&rese)
 	if t.Error != nil {
-		c.JSON(400, gin.H{"error": t.Error.Error()})
+		c.JSON(410, gin.H{"error": t.Error.Error()})
 		return
 	}
 
