@@ -57,34 +57,49 @@ func (h *Handlers) BookRoom(c *gin.Context) {
 		return
 	}
 
+	// if starting_time.Hour() == ending_time.Hour() {
+	// 	c.JSON(410, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
+	// 	return
+	// }
+
 	if starting_time.Day() != ending_time.Day() {
-		if starting_time.Hour() < ending_time.Hour() {
+		if starting_time.Unix() < ending_time.Unix() {
 			c.JSON(400, gin.H{"error": "Session ni oxiri boshidan keyin bo'la olmaydi :_)"})
 			return
 		}
 		c.JSON(400, gin.H{"error": "Kun bir xil bo'lishi kerak"})
 		return
 	}
-	if starting_time.Day() < time.Now().Day() {
-		c.JSON(400, gin.H{"error": "Bugundan oldingi sanalarga buyurtma qila olmaysiz"})
+	if starting_time.Unix() < time.Now().Unix() {
+		c.JSON(400, gin.H{"error": "Bugundan oldingi sanalarga buyurtma qila olmaysiz", "date": starting_time.Day(), "day": starting_time.Day(), "month": starting_time.Month(), "year": starting_time.Year()})
 		return
 	}
-
-	if starting_time.Hour() > 18 || starting_time.Hour() < 9 {
-		c.JSON(400, gin.H{"error": "Xona faoliyat vaqti 9 dan 18 gacha"})
-		return
-	}
-	if ending_time.Hour() > 18 || ending_time.Hour() < 9 {
-		c.JSON(400, gin.H{"error": "Xona faoliyat vaqti 9 dan 18 gacha"})
-		return
-	}
-
 	fmt.Println(starting_time, ending_time)
 	reservations := []models.Reservation{}
-	h.DB.Where("room_id = ?", room_id).Where("start >= ?", starting_time).Where("end <= ?", ending_time).Find(&reservations)
-	if len(reservations) > 0 {
-		c.JSON(400, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
-		return
+	h.DB.Where("room_id = ?", room_id).Find(&reservations)
+
+	for _, reserv := range reservations {
+		if starting_time.After(reserv.Start) && starting_time.Before(reserv.End) {
+			c.JSON(410, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
+			return
+		}
+		if ending_time.After(reserv.Start) && ending_time.Before(reserv.Start) {
+			c.JSON(410, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
+			return
+		}
+		if ending_time.After(reserv.End) && starting_time.Before(reserv.Start) {
+			c.JSON(410, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
+			return
+		}
+		if ending_time.After(reserv.End) && ending_time.Before(reserv.Start) {
+			c.JSON(410, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
+			return
+		}
+		if starting_time.Equal(reserv.Start) || ending_time.Equal(reserv.End) {
+			c.JSON(410, gin.H{"error": "uzr, siz tanlagan vaqtda xona band"})
+			return
+		}
+
 	}
 
 	// check if resident exists
@@ -110,14 +125,14 @@ func (h *Handlers) BookRoom(c *gin.Context) {
 
 	t := h.DB.Create(&rese)
 	if t.Error != nil {
-		c.JSON(400, gin.H{"error": t.Error.Error()})
+		c.JSON(410, gin.H{"error": t.Error.Error()})
 		return
 	}
 
 	// room.Reservations = append(room.Reservations,
 	// h.DB.Commit()
 
-	c.JSON(200, gin.H{"message": "xona muvaffaqiyatli band qilindi"})
+	c.JSON(201, gin.H{"message": "xona muvaffaqiyatli band qilindi"})
 
 }
 

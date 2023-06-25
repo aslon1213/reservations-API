@@ -34,31 +34,75 @@ func (h *Handlers) GetRooms(c *gin.Context) {
 
 	types := c.Query("type")
 	page := c.Query("page")
+	page_size := c.Query("page_size")
+	search := c.Query("search")
+	if page_size == "" || page == "" {
+		rooms := []models.Room{}
+		if types == "" && search == "" {
+			h.DB.Find(&rooms)
+		} else {
+			if types == "" {
+				types = "%"
+			}
+			h.DB.Where("type  LIKE ?", types).Where("name LIKE ?", "%"+search+"%").Find(&rooms)
+		}
+
+		type output_room struct {
+			Capacity int    `json:"capacity"`
+			ID       uint   `json:"id"`
+			Name     string `json:"name"`
+			Type     string `json:"type"`
+		}
+		var output []output_room
+		for _, room := range rooms {
+			a := output_room{
+				ID:       room.ID,
+				Name:     room.Name,
+				Type:     room.Type,
+				Capacity: room.Capacity}
+			output = append(output, a)
+		}
+		page := 0
+		if len(output) != 0 {
+			page = 1
+		}
+		c.JSON(200, gin.H{
+			"page":      page,
+			"count":     len(output),
+			"page_size": len(output),
+			"results":   output,
+		})
+		return
+	}
 	page_int, _ := strconv.Atoi(page)
+
 	if page_int <= 0 {
 		c.JSON(400, gin.H{"error": "Invalid page number"})
 		return
 	}
-	page_size := c.Query("page_size")
+
 	page_size_int, err := strconv.Atoi(page_size)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	search := c.Query("search")
+
 	fmt.Println(types, page_int, page_size, search)
 	rooms := []models.Room{}
 	if types == "" && search == "" {
 		h.DB.Find(&rooms)
 	} else {
-		h.DB.Where("type = ?", types).Where("name LIKE ?", "%"+search+"%").Find(&rooms)
+		if types == "" {
+			types = "%"
+		}
+		h.DB.Where("type LIKE ?", types).Where("name LIKE ?", "%"+search+"%").Find(&rooms)
 
 	}
 	type output_room struct {
+		Capacity int    `json:"capacity"`
 		ID       uint   `json:"id"`
 		Name     string `json:"name"`
 		Type     string `json:"type"`
-		Capacity int    `json:"capacity"`
 	}
 	var output []output_room
 	for _, room := range rooms {
@@ -84,11 +128,14 @@ func (h *Handlers) GetRooms(c *gin.Context) {
 	// 	"rooms": rooms,
 	// })
 
+	if len(output) == 0 {
+		page_int = 0
+	}
 	c.JSON(200, gin.H{
 		"page":      page_int,
-		"count":     len(output)/page_size_int + 1,
+		"count":     len(output),
 		"page_size": page_size_int,
-		"rooms":     rooms_with_pagination[page_int-1]})
+		"results":   rooms_with_pagination[page_int-1]})
 
 }
 
@@ -102,7 +149,7 @@ func (h *Handlers) GetRoom(c *gin.Context) {
 	h.DB.Where("room_id = ?", id).Find(&reservations)
 
 	if res.Error != nil {
-		c.JSON(400, gin.H{"error": "topilmadi"})
+		c.JSON(404, gin.H{"error": "topilmadi"})
 		return
 	}
 	room.Reservations = reservations
@@ -114,8 +161,8 @@ func (h *Handlers) GetRoom(c *gin.Context) {
 }
 
 type output struct {
-	Start int `json:"start"`
-	End   int `json:"end"`
+	Start int64 `json:"start"`
+	End   int64 `json:"end"`
 }
 
 func (h *Handlers) GetRoomAvailability(c *gin.Context) {
@@ -143,30 +190,19 @@ func (h *Handlers) GetRoomAvailability(c *gin.Context) {
 	// get reservations
 	fmt.Println(date)
 	// get date to start of day
-	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	tashkent, _ := time.LoadLocation("Asia/Tashkent")
+	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, tashkent)
 	// get date to end of day
-	end := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, time.UTC)
+	end := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, tashkent)
 	reservations := []models.Reservation{}
 	h.DB.Where("room_id = ?", id).Where("start <= ?", end).Where("end >= ?", start).Find(&reservations)
 	// h.DB.Where("room_id = ?", id).Find(&reservations)
-	available_hours := getavailablehours(reservations)
-	fmt.Println(available_hours)
+	time_range := getavailablehours(start, end, reservations)
+	// fmt.Println(available_hours)
 
 	o := []output{}
-	if len(available_hours) == 24 {
-		o = append(o, output{Start: 0, End: 24})
-	} else {
-		prev, cur := 0, 1
-		for cur != len(available_hours) {
-			if available_hours[cur]-available_hours[cur-1] > 1 {
-				o = append(o, output{Start: available_hours[prev], End: available_hours[cur-1] + 1})
-				prev = cur
-			}
-			cur++
-		}
-		if prev-cur != 0 {
-			o = append(o, output{Start: available_hours[prev], End: available_hours[cur-1] + 1})
-		}
+	for _, t := range time_range {
+		o = append(o, output{Start: t[0], End: t[1]})
 	}
 
 	type output_ava struct {
@@ -186,32 +222,54 @@ func (h *Handlers) GetRoomAvailability(c *gin.Context) {
 
 func (a *output) formatavailablehours(day int, month int, year int) (string, string, error) {
 
-	t1 := time.Date(year, time.Month(month), day, a.Start, 0, 0, 0, time.UTC)
-	t2 := time.Date(year, time.Month(month), day, a.End, 0, 0, 0, time.UTC)
+	tashkent, _ := time.LoadLocation("Asia/Tashkent")
+	t1 := time.Date(year, time.Month(month), day, 0, 0, 0, 0, tashkent)
+	t1 = t1.Add(time.Second * time.Duration(a.Start))
+	t2 := time.Date(year, time.Month(month), day, 0, 0, 0, 0, tashkent)
+	t2 = t2.Add(time.Second * time.Duration(a.End))
 
 	start := t1.Format("02-01-2006 15:04:05")
 	end := t2.Format("02-01-2006 15:04:05")
 	return start, end, nil
 }
 
-func getavailablehours(reservations []models.Reservation) []int {
-	available_hours := []int{}
-	for i := 9; i < 18; i++ {
-		available_hours = append(available_hours, i)
-	}
+func getavailablehours(start time.Time, end time.Time, reservations []models.Reservation) [][]int64 {
+	time_range := [][]int64{{0, end.Unix() - start.Unix()}}
 
-	appointed_hours := []int{}
+	fmt.Println("start:", start, " - ", "end:", end)
 	for _, reservation := range reservations {
-		for i := reservation.Start.Hour(); i < reservation.End.Hour(); i++ {
-			appointed_hours = append(appointed_hours, i)
+		reservation_start := reservation.Start.Unix() - start.Unix()
+		reservation_end := reservation.End.Unix() - start.Unix()
+		fmt.Println("Reservation:", reservation.Start, "-", reservation.End)
+		fmt.Println("Reservation_start:", reservation_start, "Reservation_end:", reservation_end)
+		fmt.Println("time_range:", time_range)
+		for i, time := range time_range {
+			if time[0] == reservation_start && time[1] == reservation_end {
+				// delete i item
+				time_range = append(time_range[:i], time_range[i+1:]...)
+			} else if time[0] == reservation_start && time[1] > reservation_end {
+				time_range[i][0] = reservation_end
+				time_range[i][1] = time[1]
+
+			} else if time[0] > reservation_start && time[1] == reservation_end {
+				time_range[i][0] = time[0]
+				time_range[i][1] = reservation_start
+			} else if time[0] < reservation_start && time[1] > reservation_end {
+				range_1 := []int64{time[0], reservation_start}
+				range_2 := []int64{reservation_end, time[1]}
+				time_range_left := time_range[:i]
+				time_range_right := time_range[i+1:]
+				time_range = append(time_range_left, range_1)
+				time_range = append(time_range, range_2)
+				time_range = append(time_range, time_range_right...)
+			}
+
 		}
 	}
 
-	for _, hour := range appointed_hours {
-		available_hours = remove(available_hours, hour)
-	}
+	fmt.Println(time_range)
 
-	return available_hours
+	return time_range
 }
 
 func remove(slice []int, s int) []int {
