@@ -30,7 +30,10 @@ func Init() {
 
 	db, err := gorm.Open(mysql.Open(os.Getenv("DB_URI")), &gorm.Config{})
 	if err != nil {
-		panic(err)
+		db, err = gorm.Open(mysql.Open(os.Getenv("DB_URI_DOCKER")), &gorm.Config{})
+		if err != nil {
+			panic(err)
+		}
 	}
 	DB_CLIENT = db
 	//create tables
@@ -81,9 +84,10 @@ func create_some_rooms() {
 
 func main() {
 
-	// time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 30)
 	//
 	Init()
+	// create_some_rooms()
 	router := gin.Default()
 	api := router.Group("/api")
 	api.GET("/rooms", Handlers.GetRooms)
@@ -95,7 +99,7 @@ func main() {
 	api.DELETE("/reservs/delete/all", Handlers.DeleteAllReservations)
 	api.GET("/rooms/:id/reservations_full", Handlers.GetAllReservationsFullInfo)
 	api.DELETE("/rooms/:id/unbook", Handlers.UnbookRoom)
-	// go create_some_rooms()
+	go create_some_rooms()
 	if err := router.Run("0.0.0.0:8080"); err != nil {
 		panic(err)
 	}
